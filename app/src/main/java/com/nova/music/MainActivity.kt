@@ -68,6 +68,9 @@ private fun NovaScreen() {
                 track = SampleTrack,
                 modifier = Modifier.padding(start = 24.dp, end = 12.dp, top = 24.dp),
             )
+            PlayerControls(
+                modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 24.dp),
+            )
         }
     }
 }
