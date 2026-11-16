@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -23,6 +24,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -43,11 +49,21 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// Canción de ejemplo, solo para ver el diseño. Se quita al conectar tus canciones.
-private val SampleTrack = Track(title = "Snooze", artist = "SZA")
+// Canciones de ejemplo, solo para ver el diseño. Se quitan al conectar tus canciones.
+private val SampleTracks = listOf(
+    Track(title = "BIRDS OF A FEATHER", artist = "Billie Eilish"),
+    Track(title = "Not Like Us", artist = "Kendrick Lamar"),
+    Track(title = "Blinding Lights", artist = "The Weeknd"),
+    Track(title = "HUMBLE.", artist = "Kendrick Lamar"),
+    Track(title = "Die For You", artist = "The Weeknd"),
+    Track(title = "Snooze", artist = "SZA"),
+)
 
 @Composable
 private fun NovaScreen() {
+    // Empieza con "Snooze" sonando, como en tu diseño
+    var currentIndex by rememberSaveable { mutableStateOf(SampleTracks.lastIndex) }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -61,15 +77,29 @@ private fun NovaScreen() {
             contentScale = ContentScale.Crop,
             alignment = Alignment.TopEnd,
         )
-        // El contenido empieza debajo de la barra de estado del teléfono
-        Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+        // El contenido queda entre la barra de estado y la barra de navegación del teléfono
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding(),
+        ) {
             NovaHeader(onSettingsClick = { /* Ajustes llegará en un paso posterior */ })
-            NowPlayingCard(
-                track = SampleTrack,
-                modifier = Modifier.padding(start = 24.dp, end = 12.dp, top = 24.dp),
-            )
+            key(currentIndex) {
+                NowPlayingCard(
+                    track = SampleTracks[currentIndex],
+                    modifier = Modifier.padding(start = 24.dp, end = 12.dp, top = 24.dp),
+                )
+            }
             PlayerControls(
                 modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 24.dp),
+            )
+            SongList(
+                tracks = SampleTracks,
+                onTrackClick = { currentIndex = it },
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(top = 24.dp),
             )
         }
     }
