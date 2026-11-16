@@ -43,6 +43,9 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// Canción de ejemplo, solo para ver el diseño. Se quita al conectar tus canciones.
+private val SampleTrack = Track(title = "Snooze", artist = "SZA")
+
 @Composable
 private fun NovaScreen() {
     Box(
@@ -61,6 +64,10 @@ private fun NovaScreen() {
         // El contenido empieza debajo de la barra de estado del teléfono
         Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
             NovaHeader(onSettingsClick = { /* Ajustes llegará en un paso posterior */ })
+            NowPlayingCard(
+                track = SampleTrack,
+                modifier = Modifier.padding(start = 24.dp, end = 12.dp, top = 24.dp),
+            )
         }
     }
 }
