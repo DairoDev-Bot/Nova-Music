@@ -75,8 +75,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private const val NO_SONG = -1L
-
 // Android 13 en adelante usa un permiso propio para el audio; antes se usaba el de almacenamiento
 private val AudioPermission: String =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -104,11 +102,17 @@ private fun NovaScreen() {
             initializer { LibraryViewModel(this[APPLICATION_KEY] as Application) }
         }
     )
+    val player: PlayerViewModel = viewModel(
+        factory = viewModelFactory {
+            initializer { PlayerViewModel(this[APPLICATION_KEY] as Application) }
+        }
+    )
     val libraryState by library.state.collectAsStateWithLifecycle()
+    val playerState by player.state.collectAsStateWithLifecycle()
 
     var hasPermission by remember { mutableStateOf(hasAudioPermission(context)) }
     var deniedOnce by rememberSaveable { mutableStateOf(false) }
-    var currentSongId by rememberSaveable { mutableStateOf(NO_SONG) }
+    var askedNotifications by rememberSaveable { mutableStateOf(false) }
     var selectedTabIndex by rememberSaveable { mutableStateOf(0) }
     val selectedTab = NovaTab.entries[selectedTabIndex]
     // Guarda el estado de cada pestaña al cambiar de una a otra
@@ -121,11 +125,31 @@ private fun NovaScreen() {
         if (granted) library.load() else deniedOnce = true
     }
 
+    // El permiso de avisos solo hace falta para ver los controles en la notificación; la música suena igual sin él
+    val notificationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { }
+
+    fun askNotificationPermissionOnce() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            !askedNotifications &&
+            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            askedNotifications = true
+            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
     // Al volver a la app (por ejemplo desde Ajustes) se revisa el permiso y se actualiza la lista
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         hasPermission = hasAudioPermission(context)
         if (hasPermission) library.load()
     }
+
+    // La barra de progreso solo se mueve mientras la app está a la vista
+    LifecycleEventEffect(Lifecycle.Event.ON_START) { player.setUiVisible(true) }
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { player.setUiVisible(false) }
 
     Box(
         modifier = Modifier
@@ -155,8 +179,9 @@ private fun NovaScreen() {
                             hasPermission = hasPermission,
                             deniedOnce = deniedOnce,
                             libraryState = libraryState,
-                            currentSongId = currentSongId,
-                            onSongSelected = { currentSongId = it },
+                            playerState = playerState,
+                            player = player,
+                            onPlayStarted = { askNotificationPermissionOnce() },
                             onAllow = { permissionLauncher.launch(AudioPermission) },
                             onOpenSettings = { openAppSettings(context) },
                             onRetry = { library.load() },
@@ -185,8 +210,9 @@ private fun ColumnScope.HomeContent(
     hasPermission: Boolean,
     deniedOnce: Boolean,
     libraryState: LibraryState,
-    currentSongId: Long,
-    onSongSelected: (Long) -> Unit,
+    playerState: PlayerUiState,
+    player: PlayerViewModel,
+    onPlayStarted: () -> Unit,
     onAllow: () -> Unit,
     onOpenSettings: () -> Unit,
     onRetry: () -> Unit,
@@ -231,8 +257,9 @@ private fun ColumnScope.HomeContent(
         )
         is LibraryState.Ready -> LibraryContent(
             songs = libraryState.songs,
-            currentSongId = currentSongId,
-            onSongSelected = onSongSelected,
+            playerState = playerState,
+            player = player,
+            onPlayStarted = onPlayStarted,
         )
     }
 }
@@ -240,25 +267,46 @@ private fun ColumnScope.HomeContent(
 @Composable
 private fun ColumnScope.LibraryContent(
     songs: List<Song>,
-    currentSongId: Long,
-    onSongSelected: (Long) -> Unit,
+    playerState: PlayerUiState,
+    player: PlayerViewModel,
+    onPlayStarted: () -> Unit,
 ) {
-    // Si todavía no elegiste ninguna, se muestra la primera de la lista
-    val current = songs.firstOrNull { it.id == currentSongId } ?: songs.first()
-    val tracks = remember(songs) { songs.map { Track(title = it.title, artist = it.artist) } }
+    // Si todavía no suena nada, se muestra la primera canción de la lista
+    val current = songs.firstOrNull { it.id == playerState.currentSongId } ?: songs.first()
+    val durationMs = if (playerState.durationMs > 0L) playerState.durationMs else current.durationMs
+    // Solo la barra lee la posición, así no se redibuja toda la pantalla cada vez que avanza
+    val position = player.position.collectAsStateWithLifecycle()
 
     key(current.id) {
         NowPlayingCard(
-            track = Track(title = current.title, artist = current.artist),
+            song = current,
             modifier = Modifier.padding(start = 24.dp, end = 12.dp, top = 24.dp),
         )
     }
     PlayerControls(
+        isPlaying = playerState.isPlaying,
+        position = position,
+        durationMs = durationMs,
+        shuffleOn = playerState.shuffleOn,
+        repeatMode = playerState.repeatMode,
+        onPlayPause = {
+            onPlayStarted()
+            player.togglePlayPause(songs, current.id)
+        },
+        onPrevious = player::previous,
+        onNext = player::next,
+        onShuffle = player::toggleShuffle,
+        onRepeat = player::cycleRepeat,
+        onSeek = player::seekToFraction,
         modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 24.dp),
     )
     SongList(
-        tracks = tracks,
-        onTrackClick = { index -> onSongSelected(songs[index].id) },
+        songs = songs,
+        currentSongId = current.id,
+        onSongClick = { index ->
+            onPlayStarted()
+            player.playFrom(songs, index)
+        },
         modifier = Modifier
             .weight(1f)
             .padding(top = 24.dp),
