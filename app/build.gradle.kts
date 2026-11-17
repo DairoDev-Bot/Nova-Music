@@ -4,6 +4,9 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// Versión de Media3, la librería que reproduce la música
+val media3Version = "1.9.3"
+
 android {
     namespace = "com.nova.music"
     compileSdk = 36
@@ -65,6 +68,10 @@ dependencies {
     // El BOM va antes: fija las versiones de todas las librerías de Compose
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.bundles.compose)
+
+    // Reproductor de música y servicio en segundo plano
+    implementation("androidx.media3:media3-exoplayer:$media3Version")
+    implementation("androidx.media3:media3-session:$media3Version")
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
