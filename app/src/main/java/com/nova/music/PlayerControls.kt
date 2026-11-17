@@ -19,16 +19,15 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.outlined.Repeat
+import androidx.compose.material.icons.outlined.RepeatOne
 import androidx.compose.material.icons.outlined.Shuffle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -38,36 +37,39 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.media3.common.Player
 
 private val TimeGray = Color(0xFF9A9A9A)
 private val TrackGray = Color(0xFF5A5A5A)
 private val ThumbRadius = 6.dp
 
-// Duración de la canción de ejemplo: 3:21
-private const val SampleDurationSec = 201f
-
-/**
- * Barra de progreso y controles.
- * Por ahora es una demostración visual: todavía no suena nada.
- */
+/** Barra de progreso y los 5 controles. No guarda estado: todo viene del reproductor. */
 @Composable
-fun PlayerControls(modifier: Modifier = Modifier) {
-    var positionSec by rememberSaveable { mutableStateOf(45f) }
-    var isPlaying by rememberSaveable { mutableStateOf(true) }
-    var shuffleOn by rememberSaveable { mutableStateOf(false) }
-    var repeatOn by rememberSaveable { mutableStateOf(false) }
+fun PlayerControls(
+    isPlaying: Boolean,
+    position: State<Long>,
+    durationMs: Long,
+    shuffleOn: Boolean,
+    repeatMode: Int,
+    onPlayPause: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onShuffle: () -> Unit,
+    onRepeat: () -> Unit,
+    onSeek: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val positionMs = position.value.coerceIn(0L, maxOf(durationMs, 0L))
+    val progress = if (durationMs > 0L) positionMs.toFloat() / durationMs else 0f
 
     Column(modifier = modifier.fillMaxWidth()) {
-        SeekBar(
-            progress = positionSec / SampleDurationSec,
-            onSeek = { positionSec = it * SampleDurationSec },
-        )
+        SeekBar(progress = progress, onSeek = onSeek)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text(text = formatTime(positionSec), color = TimeGray, fontSize = 16.sp)
-            Text(text = formatTime(SampleDurationSec), color = TimeGray, fontSize = 16.sp)
+            Text(text = formatTime(positionMs), color = TimeGray, fontSize = 16.sp)
+            Text(text = formatTime(durationMs), color = TimeGray, fontSize = 16.sp)
         }
         Spacer(Modifier.height(16.dp))
         Row(
@@ -75,11 +77,16 @@ fun PlayerControls(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ControlIcon(Icons.Outlined.Shuffle, "Aleatorio", shuffleOn) { shuffleOn = !shuffleOn }
-            ControlIcon(Icons.Filled.SkipPrevious, "Anterior", true) { /* se conecta con la música */ }
-            PlayPauseButton(isPlaying) { isPlaying = !isPlaying }
-            ControlIcon(Icons.Filled.SkipNext, "Siguiente", true) { /* se conecta con la música */ }
-            ControlIcon(Icons.Outlined.Repeat, "Repetir", repeatOn) { repeatOn = !repeatOn }
+            ControlIcon(Icons.Outlined.Shuffle, "Aleatorio", shuffleOn, onShuffle)
+            ControlIcon(Icons.Filled.SkipPrevious, "Anterior", true, onPrevious)
+            PlayPauseButton(isPlaying, onPlayPause)
+            ControlIcon(Icons.Filled.SkipNext, "Siguiente", true, onNext)
+            ControlIcon(
+                icon = if (repeatMode == Player.REPEAT_MODE_ONE) Icons.Outlined.RepeatOne else Icons.Outlined.Repeat,
+                description = "Repetir",
+                active = repeatMode != Player.REPEAT_MODE_OFF,
+                onClick = onRepeat,
+            )
         }
     }
 }
@@ -175,7 +182,7 @@ private fun seekFraction(x: Float, widthPx: Int, insetPx: Float): Float {
     return if (usable <= 0f) 0f else ((x - insetPx) / usable).coerceIn(0f, 1f)
 }
 
-private fun formatTime(seconds: Float): String {
-    val total = seconds.toInt().coerceAtLeast(0)
+private fun formatTime(ms: Long): String {
+    val total = (ms / 1000L).toInt().coerceAtLeast(0)
     return "${total / 60}:${(total % 60).toString().padStart(2, '0')}"
 }
