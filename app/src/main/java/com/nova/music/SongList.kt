@@ -1,22 +1,17 @@
 package com.nova.music
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -24,8 +19,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,21 +27,12 @@ import androidx.compose.ui.unit.sp
 
 private val SongGray = Color(0xFF9A9A9A)
 
-// Colores de las portadas de ejemplo. Con tus canciones reales se usan sus portadas.
-private val CoverColors = listOf(
-    Color(0xFF0B3A66),
-    Color(0xFF3D5A3A),
-    Color(0xFF3A3A3A),
-    Color(0xFF6A6A6A),
-    Color(0xFF8A5A66),
-    Color(0xFF2B3340),
-)
-
 /** Lista de canciones con su título "Música". Cada fila se puede tocar. */
 @Composable
 fun SongList(
-    tracks: List<Track>,
-    onTrackClick: (Int) -> Unit,
+    songs: List<Song>,
+    currentSongId: Long,
+    onSongClick: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.padding(start = 24.dp, end = 12.dp)) {
@@ -74,11 +58,11 @@ fun SongList(
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(bottom = 16.dp),
         ) {
-            itemsIndexed(tracks) { index, track ->
+            itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
                 SongRow(
-                    track = track,
-                    coverColor = CoverColors[index % CoverColors.size],
-                    onClick = { onTrackClick(index) },
+                    song = song,
+                    isCurrent = song.id == currentSongId,
+                    onClick = { onSongClick(index) },
                 )
             }
         }
@@ -86,7 +70,7 @@ fun SongList(
 }
 
 @Composable
-private fun SongRow(track: Track, coverColor: Color, onClick: () -> Unit) {
+private fun SongRow(song: Song, isCurrent: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -94,31 +78,19 @@ private fun SongRow(track: Track, coverColor: Color, onClick: () -> Unit) {
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier = Modifier
-                .size(64.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(Brush.linearGradient(listOf(coverColor, Color(0xFF0B0B0B)))),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.MusicNote,
-                contentDescription = null,
-                tint = Color.White.copy(alpha = 0.5f),
-                modifier = Modifier.size(28.dp),
-            )
-        }
+        SongCover(song = song, sizeDp = 64.dp, corner = 10.dp)
         Spacer(Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = track.title,
+                text = song.title,
                 color = Color.White,
                 fontSize = 18.sp,
+                fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = track.artist,
+                text = song.artist,
                 color = SongGray,
                 fontSize = 15.sp,
                 maxLines = 1,
